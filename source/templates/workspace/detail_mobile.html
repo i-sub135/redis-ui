@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redis UI — Key Detail</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Titlebar (mobile: back to key list) -->
+  <header class="h-12 border-b border-[#21262d] px-4 flex items-center gap-3 shrink-0">
+    <a href="workspace.html" class="inline-flex items-center gap-1.5 text-[11px] text-[#8b949e] hover:text-gray-200 transition-colors">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      Keys
+    </a>
+    <div class="w-px h-4 bg-[#21262d]"></div>
+    <span class="text-[13px] font-semibold font-mono text-gray-200 truncate">user:123</span>
+    <div class="flex-1"></div>
+    <div class="flex items-center gap-1.5">
+      <button class="text-[11px] text-[#8b949e] hover:text-gray-200 px-2 py-1 rounded-md hover:bg-[#21262d] transition-colors">Edit</button>
+      <button class="text-[11px] text-red-400 hover:text-red-300 px-2 py-1 rounded-md hover:bg-[#21262d] transition-colors">Delete</button>
+    </div>
+  </header>
+
+  <!-- Key meta -->
+  <div class="px-4 py-2.5 border-b border-[#21262d] flex items-center gap-3 bg-[#161b22]">
+    <span class="text-[10px] font-bold text-blue-400 bg-blue-900/30 border border-blue-800/40 px-1.5 py-0.5 rounded">hash</span>
+    <span class="text-[11px] text-[#8b949e]">TTL: <span class="text-yellow-400">3600s</span></span>
+    <span class="text-[11px] text-[#8b949e]">fields: <span class="text-gray-300">4</span></span>
+  </div>
+
+  <!-- Type tabs -->
+  <div class="px-4 border-b border-[#21262d] flex gap-4 overflow-x-auto shrink-0 bg-[#0f1117]">
+    <button class="text-[11px] font-medium py-2.5 text-red-400 border-b-2 border-red-500 shrink-0">Hash</button>
+    <button class="text-[11px] font-medium py-2.5 text-[#8b949e] border-b-2 border-transparent shrink-0">String</button>
+    <button class="text-[11px] font-medium py-2.5 text-[#8b949e] border-b-2 border-transparent shrink-0">List</button>
+    <button class="text-[11px] font-medium py-2.5 text-[#8b949e] border-b-2 border-transparent shrink-0">Set</button>
+    <button class="text-[11px] font-medium py-2.5 text-[#8b949e] border-b-2 border-transparent shrink-0">ZSet</button>
+  </div>
+
+  <!-- Hash content -->
+  <div class="flex-1 overflow-y-auto">
+    <table class="w-full text-[11px]">
+      <thead>
+        <tr class="border-b border-[#21262d] text-[#8b949e] bg-[#161b22]">
+          <th class="text-left px-4 py-2 font-medium w-1/3">Field</th>
+          <th class="text-left px-4 py-2 font-medium">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="border-b border-[#21262d] hover:bg-[#161b22] transition-colors">
+          <td class="px-4 py-3 font-mono text-blue-300">name</td>
+          <td class="px-4 py-3 font-mono text-gray-300">John Doe</td>
+        </tr>
+        <tr class="border-b border-[#21262d] hover:bg-[#161b22] transition-colors">
+          <td class="px-4 py-3 font-mono text-blue-300">email</td>
+          <td class="px-4 py-3 font-mono text-gray-300 break-all">john@example.com</td>
+        </tr>
+        <tr class="border-b border-[#21262d] hover:bg-[#161b22] transition-colors">
+          <td class="px-4 py-3 font-mono text-blue-300">role</td>
+          <td class="px-4 py-3 font-mono text-gray-300">admin</td>
+        </tr>
+        <tr class="border-b border-[#21262d] hover:bg-[#161b22] transition-colors">
+          <td class="px-4 py-3 font-mono text-blue-300">created_at</td>
+          <td class="px-4 py-3 font-mono text-gray-300 break-all">2024-01-15T08:30:00Z</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>

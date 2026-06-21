@@ -1,0 +1,52 @@
+# Go build artifacts
+# go.sum
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test artifacts
+*.test
+*.out
+coverage.txt
+
+# Go module cache
+vendor/
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Application specific
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.local
+data/
+
+# Build & Deploy
+/dist/
+/build/
+/tmp/
+*.log
+
+.gocache
+.vscode/
+.trunk
+.codex
+config.yaml
+playground/play.config.yaml

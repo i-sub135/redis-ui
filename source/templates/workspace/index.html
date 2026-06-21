@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redis UI — Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif; }
+    .key-item.active { background: #1f2937; }
+    .tab-btn.active { color: #f87171; border-bottom: 2px solid #ef4444; }
+    #key-list { transition: opacity 0.15s ease; }
+    #key-list.loading { opacity: 0.4; pointer-events: none; }
+  </style>
+  <script>
+    const connId = window.location.pathname.split('/')[2]
+    let dbData = []
+    let allKeys = []
+
+    const TYPE_STYLE = {
+      hash:   { label: 'hash', color: 'text-blue-400 bg-blue-900/30 border-blue-800/40' },
+      string: { label: 'str',  color: 'text-purple-400 bg-purple-900/30 border-purple-800/40' },
+      list:   { label: 'list', color: 'text-yellow-400 bg-yellow-900/30 border-yellow-800/40' },
+      set:    { label: 'set',  color: 'text-green-400 bg-green-900/30 border-green-800/40' },
+      zset:   { label: 'zset', color: 'text-orange-400 bg-orange-900/30 border-orange-800/40' },
+      stream: { label: 'strm', color: 'text-red-400 bg-red-900/30 border-red-800/40' },
+    }
+
+    function renderKeys(keys) {
+      const ul = document.getElementById('key-list')
+      if (!keys.length) {
+        ul.innerHTML = '<li class="px-3 py-4 text-[11px] text-[#8b949e] text-center">No keys</li>'
+        return
+      }
+      ul.innerHTML = keys.map(k => {
+        const s = TYPE_STYLE[k.type] || { label: k.type, color: 'text-gray-400 bg-gray-900/30 border-gray-700' }
+        return `<li class="key-item">
+          <button onclick="selectKey(this,'${k.key.replace(/'/g,"\\'")}','${k.type}')"
+            class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#1c2128] transition-colors">
+            <span class="text-[9px] font-bold ${s.color} border px-1 py-0.5 rounded shrink-0 w-10 text-center">${s.label}</span>
+            <span class="text-[11px] text-gray-300 truncate">${k.key}</span>
+          </button>
+        </li>`
+      }).join('')
+    }
+
+    async function loadKeys(db) {
+      const list = document.getElementById('key-list')
+      const counter = document.getElementById('key-count')
+      list.classList.add('loading')
+      counter.textContent = '...'
+      try {
+        const res = await fetch(`/api/v1/workspace/${connId}/keys?db=${db}`)
+        const json = await res.json()
+        allKeys = json.data || []
+        counter.textContent = allKeys.length + ' keys'
+        renderKeys(allKeys)
+      } catch (e) {
+        counter.textContent = 'error'
+        console.error('failed to load keys', e)
+      } finally {
+        list.classList.remove('loading')
+      }
+    }
+
+    async function loadDbs() {
+      try {
+        const res = await fetch(`/api/v1/workspace/${connId}/dbs`)
+        const json = await res.json()
+        dbData = json.data || []
+        const select = document.getElementById('db-selector')
+        select.innerHTML = dbData.length
+          ? dbData.map(d => `<option value="${d.db}">DB ${d.db}</option>`).join('')
+          : '<option value="0">DB 0</option>'
+        loadKeys(parseInt(select.value))
+      } catch (e) {
+        console.error('failed to load dbs', e)
+        loadKeys(0)
+      }
+    }
+
+    function onDbChange(db) {
+      loadKeys(parseInt(db))
+    }
+
+    function filterKeys(q) {
+      const filtered = q ? allKeys.filter(k => k.key.includes(q)) : allKeys
+      renderKeys(filtered)
+    }
+
+    async function selectKey(btn, key, type) {
+      document.querySelectorAll('.key-item button').forEach(b => b.classList.remove('bg-[#1f2937]'))
+      btn.classList.add('bg-[#1f2937]')
+
+      const db = parseInt(document.getElementById('db-selector').value)
+      const panel = document.getElementById('detail-panel')
+      panel.innerHTML = '<div class="flex-1 flex items-center justify-center text-[11px] text-[#8b949e]">Loading...</div>'
+
+      // mobile: hide key list, show detail panel
+      const isMobile = window.innerWidth < 768
+      if (isMobile) {
+        document.getElementById('key-panel').classList.add('hidden')
+        panel.classList.remove('hidden')
+        panel.classList.add('flex')
+      }
+
+      try {
+        const res = await fetch(`/api/v1/workspace/${connId}/key-value?key=${encodeURIComponent(key)}&db=${db}`)
+        const json = await res.json()
+        renderDetail(json.data)
+      } catch (e) {
+        panel.innerHTML = '<div class="flex-1 flex items-center justify-center text-[11px] text-red-400">Error loading value</div>'
+      }
+    }
+
+    function backToKeys() {
+      document.getElementById('key-panel').classList.remove('hidden')
+      const panel = document.getElementById('detail-panel')
+      panel.classList.add('hidden')
+      panel.classList.remove('flex')
+    }
+
+    function renderDetail(d) {
+      const panel = document.getElementById('detail-panel')
+      const ttlLabel = d.ttl < 0 ? 'no expiry' : d.ttl + 's'
+      const typeColor = (TYPE_STYLE[d.type] || {color:'text-gray-400 bg-gray-900/30 border-gray-700'}).color
+
+      let valueHtml = ''
+      if (d.type === 'string') {
+        valueHtml = `<pre class="px-5 py-3 text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-all">${escHtml(String(d.value))}</pre>`
+      } else if (d.type === 'hash') {
+        const rows = Object.entries(d.value || {}).map(([f,v]) =>
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
+            <td class="px-5 py-2 font-mono text-blue-300 w-1/3">${escHtml(f)}</td>
+            <td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(v)}</td>
+          </tr>`).join('')
+        valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium w-1/3">Field</th><th class="text-left px-5 py-2 font-medium">Value</th></tr></thead><tbody>${rows}</tbody></table>`
+      } else if (d.type === 'list') {
+        const rows = (d.value || []).map((v, i) =>
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
+            <td class="px-5 py-2 text-[#8b949e] w-12">${i}</td>
+            <td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(v)}</td>
+          </tr>`).join('')
+        valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium w-12">#</th><th class="text-left px-5 py-2 font-medium">Value</th></tr></thead><tbody>${rows}</tbody></table>`
+      } else if (d.type === 'set') {
+        const rows = (d.value || []).map(v =>
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]"><td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(v)}</td></tr>`).join('')
+        valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">Member</th></tr></thead><tbody>${rows}</tbody></table>`
+      } else if (d.type === 'zset') {
+        const rows = (d.value || []).map(z =>
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
+            <td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(z.Member)}</td>
+            <td class="px-5 py-2 text-orange-300 text-right w-24">${z.Score}</td>
+          </tr>`).join('')
+        valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">Member</th><th class="text-right px-5 py-2 font-medium w-24">Score</th></tr></thead><tbody>${rows}</tbody></table>`
+      } else if (d.type === 'stream') {
+        const rows = (d.value || []).map(e =>
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
+            <td class="px-5 py-2 font-mono text-[#8b949e] text-[10px] shrink-0">${escHtml(e.ID)}</td>
+            <td class="px-5 py-2 font-mono text-gray-300 text-[10px] break-all">${escHtml(JSON.stringify(e.Values))}</td>
+          </tr>`).join('')
+        valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">ID</th><th class="text-left px-5 py-2 font-medium">Values</th></tr></thead><tbody>${rows}</tbody></table>`
+      } else {
+        valueHtml = `<div class="px-5 py-3 text-[11px] text-[#8b949e]">Unsupported type: ${escHtml(d.type)}</div>`
+      }
+
+      panel.innerHTML = `
+        <div class="px-4 py-3 border-b border-[#21262d] flex flex-wrap items-center gap-x-4 gap-y-1 shrink-0">
+          <button onclick="backToKeys()" class="md:hidden mr-1 text-[#8b949e] hover:text-gray-200 transition-colors shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="text-[13px] font-semibold text-gray-100 font-mono truncate max-w-[200px]">${escHtml(d.key)}</span>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] font-bold ${typeColor} border px-1.5 py-0.5 rounded">${d.type}</span>
+            <span class="text-[11px] text-[#8b949e]">TTL: <span class="text-yellow-400">${ttlLabel}</span></span>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto">${valueHtml}</div>`
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    }
+
+    window.addEventListener('DOMContentLoaded', loadDbs)
+  </script>
+</head>
+<body class="bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Titlebar -->
+  <header class="h-12 border-b border-[#21262d] px-4 flex items-center gap-3 shrink-0">
+    <!-- Back button -->
+    <a href="/" class="inline-flex items-center gap-1.5 text-[11px] text-[#8b949e] hover:text-gray-200 transition-colors shrink-0">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      <span class="hidden sm:inline">Connections</span>
+    </a>
+
+    <div class="w-px h-4 bg-[#21262d] shrink-0"></div>
+
+    <!-- Connection name -->
+    <div class="flex items-center gap-1.5 shrink-0">
+      <span class="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0"></span>
+      <span class="text-[13px] font-semibold text-gray-200">prod</span>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <!-- DB Selector with auto-refresh -->
+    <div class="flex items-center gap-1.5">
+      <span class="text-[11px] text-[#8b949e]">DB</span>
+      <div class="relative">
+        <select
+          id="db-selector"
+          onchange="onDbChange(this.value)"
+          class="bg-[#161b22] border border-[#21262d] text-gray-200 text-[11px] rounded-md pl-2 pr-6 py-1 focus:outline-none focus:border-[#30363d] cursor-pointer appearance-none"
+        >
+          <option value="0">DB 0</option>
+        </select>
+        <svg class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[#8b949e]" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- Body: split panel -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Left panel: Key List (full width on mobile, fixed width on desktop) -->
+    <aside id="key-panel" class="w-full md:w-64 border-r border-[#21262d] bg-[#0f1117] flex flex-col shrink-0 md:shrink-0">
+
+      <!-- Search -->
+      <div class="p-2.5 border-b border-[#21262d]">
+        <div class="relative">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8b949e]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input
+            type="text"
+            placeholder="Search keys..."
+            oninput="filterKeys(this.value)"
+            class="w-full bg-[#161b22] border border-[#21262d] rounded-md pl-7 pr-3 py-1.5 text-[11px] text-gray-300 placeholder-[#8b949e] focus:outline-none focus:border-[#30363d]"
+          />
+        </div>
+      </div>
+
+      <!-- Key count -->
+      <div class="px-3 py-1.5 border-b border-[#21262d] flex items-center justify-between">
+        <span id="key-count" class="text-[10px] text-[#8b949e]">128 keys</span>
+        <span class="text-[10px] text-[#8b949e]">localhost:6379</span>
+      </div>
+
+      <!-- Key list (populated by JS) -->
+      <ul id="key-list" class="flex-1 overflow-y-auto py-1">
+        <li class="px-3 py-4 text-[11px] text-[#8b949e] text-center">Loading...</li>
+      </ul>
+    </aside>
+
+    <!-- Right panel: Key Detail -->
+    <main id="detail-panel" class="hidden md:flex flex-1 flex-col overflow-hidden">
+      <div class="flex-1 flex items-center justify-center text-[11px] text-[#8b949e]">
+        Select a key to view its value
+      </div>
+    </main>
+  </div>
+
+</body>
+</html>
