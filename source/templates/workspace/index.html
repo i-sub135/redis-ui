@@ -34,11 +34,18 @@
       }
       ul.innerHTML = keys.map(k => {
         const s = TYPE_STYLE[k.type] || { label: k.type, color: 'text-gray-400 bg-gray-900/30 border-gray-700' }
+        const isExpired = k.ttl === -2
+        const isNearExpiry = k.ttl >= 0 && k.ttl < 3600
+        const expiryIcon = (isExpired || isNearExpiry)
+          ? `<span title="${isExpired ? 'Expired' : 'Expires in ' + k.ttl + 's'}"
+               class="text-[9px] font-bold ${isExpired || k.ttl < 60 ? 'text-red-500 animate-pulse' : 'text-red-400'} shrink-0 leading-none">(!)</span>`
+          : ''
         return `<li class="key-item">
           <button onclick="selectKey(this,'${k.key.replace(/'/g,"\\'")}','${k.type}')"
             class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#1c2128] transition-colors">
             <span class="text-[9px] font-bold ${s.color} border px-1 py-0.5 rounded shrink-0 w-10 text-center">${s.label}</span>
-            <span class="text-[11px] text-gray-300 truncate">${k.key}</span>
+            <span class="text-[11px] text-gray-300 truncate flex-1">${k.key}</span>
+            ${expiryIcon}
           </button>
         </li>`
       }).join('')
@@ -120,6 +127,14 @@
       panel.classList.remove('flex')
     }
 
+    function tryPrettyJson(s) {
+      try {
+        const parsed = JSON.parse(s)
+        if (typeof parsed === 'object' && parsed !== null) return JSON.stringify(parsed, null, 2)
+      } catch (_) {}
+      return s
+    }
+
     function renderDetail(d) {
       const panel = document.getElementById('detail-panel')
       const ttlLabel = formatTTL(d.ttl)
@@ -127,24 +142,24 @@
 
       let valueHtml = ''
       if (d.type === 'string') {
-        valueHtml = `<pre class="px-5 py-3 text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-all">${escHtml(String(d.value))}</pre>`
+        valueHtml = `<pre class="px-5 py-3 text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-all">${escHtml(tryPrettyJson(String(d.value)))}</pre>`
       } else if (d.type === 'hash') {
         const rows = Object.entries(d.value || {}).map(([f,v]) =>
           `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
-            <td class="px-5 py-2 font-mono text-blue-300 w-1/3">${escHtml(f)}</td>
-            <td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(v)}</td>
+            <td class="px-5 py-2 font-mono text-blue-300 w-1/3 align-top">${escHtml(f)}</td>
+            <td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${escHtml(tryPrettyJson(String(v)))}</pre></td>
           </tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium w-1/3">Field</th><th class="text-left px-5 py-2 font-medium">Value</th></tr></thead><tbody>${rows}</tbody></table>`
       } else if (d.type === 'list') {
         const rows = (d.value || []).map((v, i) =>
           `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
-            <td class="px-5 py-2 text-[#8b949e] w-12">${i}</td>
-            <td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(v)}</td>
+            <td class="px-5 py-2 text-[#8b949e] w-12 align-top">${i}</td>
+            <td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${escHtml(tryPrettyJson(String(v)))}</pre></td>
           </tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium w-12">#</th><th class="text-left px-5 py-2 font-medium">Value</th></tr></thead><tbody>${rows}</tbody></table>`
       } else if (d.type === 'set') {
         const rows = (d.value || []).map(v =>
-          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]"><td class="px-5 py-2 font-mono text-gray-300 break-all">${escHtml(v)}</td></tr>`).join('')
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]"><td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${escHtml(tryPrettyJson(String(v)))}</pre></td></tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">Member</th></tr></thead><tbody>${rows}</tbody></table>`
       } else if (d.type === 'zset') {
         const rows = (d.value || []).map(z =>
@@ -157,7 +172,7 @@
         const rows = (d.value || []).map(e =>
           `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
             <td class="px-5 py-2 font-mono text-[#8b949e] text-[10px] shrink-0">${escHtml(e.ID)}</td>
-            <td class="px-5 py-2 font-mono text-gray-300 text-[10px] break-all">${escHtml(JSON.stringify(e.Values))}</td>
+            <td class="px-5 py-2 font-mono text-gray-300 text-[10px] break-all"><pre class="whitespace-pre-wrap">${escHtml(JSON.stringify(e.Values, null, 2))}</pre></td>
           </tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">ID</th><th class="text-left px-5 py-2 font-medium">Values</th></tr></thead><tbody>${rows}</tbody></table>`
       } else {
@@ -169,7 +184,7 @@
           <button onclick="backToKeys()" class="md:hidden mr-1 text-[#8b949e] hover:text-gray-200 transition-colors shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <span class="text-[13px] font-semibold text-gray-100 font-mono truncate max-w-[200px]">${escHtml(d.key)}</span>
+          <span class="text-[13px] font-semibold text-gray-100 font-mono break-all">${escHtml(d.key)}</span>
           <div class="flex items-center gap-3 ml-auto">
             <span class="text-[10px] font-bold ${typeColor} border px-1.5 py-0.5 rounded">${d.type}</span>
             <span class="text-[11px] text-[#8b949e]">TTL: <span class="text-yellow-400">${ttlLabel}</span></span>
@@ -217,7 +232,19 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
     }
 
-    window.addEventListener('DOMContentLoaded', loadDbs)
+    async function loadConnName() {
+      try {
+        const res = await fetch('/api/v1/connections')
+        const json = await res.json()
+        const conn = (json.data || []).find(c => c.id === connId)
+        if (conn) {
+          document.getElementById('conn-name').textContent = conn.name
+          document.getElementById('conn-addr').textContent = conn.addr
+        }
+      } catch (_) {}
+    }
+
+    window.addEventListener('DOMContentLoaded', () => { loadConnName(); loadDbs() })
   </script>
 </head>
 <body class="bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
@@ -235,7 +262,8 @@
     <!-- Connection name -->
     <div class="flex items-center gap-1.5 shrink-0">
       <span class="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0"></span>
-      <span class="text-[13px] font-semibold text-gray-200">prod</span>
+      <span id="conn-name" class="text-[13px] font-semibold text-gray-200">—</span>
+      <span id="conn-addr" class="hidden sm:inline text-[10px] text-[#8b949e]"></span>
     </div>
 
     <div class="flex-1"></div>

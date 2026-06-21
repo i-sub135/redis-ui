@@ -1,6 +1,6 @@
 # checkpoint.md — Progress Summary
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 ---
 
@@ -82,11 +82,28 @@ GET  /api/v1/workspace/:id/key-value
 
 ---
 
+### G8 — Delete Key ✅
+
+- Feature: `source/feature/public/workspace_key_delete/`
+- `DELETE /api/v1/workspace/:id/key-value?key=...&db=0` — stateless Redis DEL, return 204
+- `workspace/index.html` — Delete button di detail panel header → confirm → DELETE fetch → clear panel + loadKeys refresh
+
+### UX Polish (post-G8) ✅
+
+- **TTL in key list:** `KeyInfo` tambah field `TTL int64`, pipeline batch bareng Type pipeline (no extra round trip)
+- **Expiry indicator:** `(!)` merah di sidebar per key — muncul kalau `ttl = -2` (expired) atau `ttl < 3600` (< 1 jam). Kedip (`animate-pulse`) kalau `ttl < 60s`
+- **JSON prettify:** `tryPrettyJson()` helper — auto-detect JSON string, render `JSON.stringify(parsed, null, 2)` untuk string/hash/list/set/stream values
+- **Full key name:** detail panel header pakai `break-all` (bukan `truncate max-w-[200px]`)
+- **Dynamic conn name:** workspace navbar fetch `/api/v1/connections` → filter by connId → tampil nama koneksi + addr
+- **Add/delete connection:** modal form + trash icon per card di connections page
+- **Active routes tambah:** `DELETE /api/v1/workspace/:id/key-value`
+
+---
+
 ## Next
 
 - **G7:** Edit Value — `PUT /api/v1/workspace/:id/key-value?key=...&db=0`, type-specific update
-- **G8:** Delete Key — `DELETE /api/v1/workspace/:id/key-value?key=...&db=0`
-- **G9:** TTL View & Set — tampil TTL dari key-value response (sudah ada), add endpoint `PATCH /api/v1/workspace/:id/key-ttl`
+- **G9:** TTL View & Set — add endpoint `PATCH /api/v1/workspace/:id/key-ttl` untuk set TTL via `EXPIRE`
 
 ---
 
