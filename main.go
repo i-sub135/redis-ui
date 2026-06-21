@@ -18,7 +18,6 @@ import (
 	"github.com/i-sub135/redis-ui/source/config"
 	"github.com/i-sub135/redis-ui/source/feature/public/healtcheck"
 	"github.com/i-sub135/redis-ui/source/pkg/logger"
-	redisclient "github.com/i-sub135/redis-ui/source/pkg/redis"
 	"github.com/i-sub135/redis-ui/source/service"
 	"github.com/i-sub135/redis-ui/source/service/middleware"
 )
@@ -53,12 +52,6 @@ func main() {
 		fmt.Println("===========================================")
 	}
 
-	rdb, err := redisclient.Init()
-	if err != nil {
-		logger.Error().Err(err).Msg(err.Error())
-		panic(err)
-	}
-
 	gin.SetMode(cfg.App.Mode)
 	r := gin.New()
 	r.Use(middleware.RequestIDMiddleware())
@@ -80,7 +73,7 @@ func main() {
 
 	// Mounting routers
 	routeAPI := r.Group("/api/v1")
-	service.NewRouters(rdb).MountRouters(routeAPI)
+	service.NewRouters().MountRouters(routeAPI)
 
 	svc := &http.Server{
 		Addr:           fmt.Sprintf(":%v", cfg.App.Port),
