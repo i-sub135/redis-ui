@@ -5,6 +5,7 @@ import "context"
 type KeyInfo struct {
 	Key  string `json:"key"`
 	Type string `json:"type"`
+	TTL  int64  `json:"ttl"`
 }
 
 type Repositories interface {

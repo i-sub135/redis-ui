@@ -37,9 +37,11 @@ func (r *repositoryImpl) ListKeys(ctx context.Context, addr, password string, db
 	}
 
 	pipe := rdb.Pipeline()
-	cmds := make([]*redis.StatusCmd, len(keys))
+	typeCmds := make([]*redis.StatusCmd, len(keys))
+	ttlCmds := make([]*redis.DurationCmd, len(keys))
 	for i, k := range keys {
-		cmds[i] = pipe.Type(ctx, k)
+		typeCmds[i] = pipe.Type(ctx, k)
+		ttlCmds[i] = pipe.TTL(ctx, k)
 	}
 	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("type pipeline: %w", err)
@@ -47,8 +49,9 @@ func (r *repositoryImpl) ListKeys(ctx context.Context, addr, password string, db
 
 	result := make([]KeyInfo, len(keys))
 	for i, k := range keys {
-		t, _ := cmds[i].Result()
-		result[i] = KeyInfo{Key: k, Type: t}
+		t, _ := typeCmds[i].Result()
+		ttlDur, _ := ttlCmds[i].Result()
+		result[i] = KeyInfo{Key: k, Type: t, TTL: int64(ttlDur / time.Second)}
 	}
 	return result, nil
 }
