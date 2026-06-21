@@ -36,7 +36,8 @@ Thumbs.db
 *.sqlite3
 .env
 .env.local
-data/
+data/*
+!data/.gitkeep
 
 # Build & Deploy
 /dist/
