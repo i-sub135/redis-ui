@@ -9,7 +9,6 @@ FROM alpine:3.21
 WORKDIR /app
 COPY --from=builder /app/redis-ui .
 COPY --from=builder /app/source/templates ./source/templates
-COPY --from=builder /app/web ./web
 COPY --from=builder /app/version .
 RUN mkdir -p data
 ENV APP_MODE=release
