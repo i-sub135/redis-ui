@@ -68,6 +68,10 @@
             <p class="text-[13px] font-semibold text-gray-100">${escHtml(c.name)}</p>
             <p class="text-[11px] text-[#8b949e] mt-0.5 truncate">${escHtml(c.addr)} · DB ${c.db}</p>
           </div>
+          <button onclick="deleteConnection('${c.id}', '${c.name.replace(/'/g, "\\'")}')"
+            class="text-[11px] text-[#8b949e] hover:text-red-400 hover:bg-red-900/20 px-2 py-1.5 rounded-md transition-colors shrink-0">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
           <button onclick="openWorkspace('${c.id}')"
             class="flex items-center gap-1.5 bg-red-700 hover:bg-red-600 active:bg-red-800 text-white text-[11px] font-medium px-2 md:px-3 py-1.5 rounded-md transition-colors shrink-0">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -79,6 +83,16 @@
 
     function openWorkspace(id) {
       window.location.href = '/workspace/' + id
+    }
+
+    async function deleteConnection(id, name) {
+      if (!confirm(`Delete connection "${name}"?`)) return
+      try {
+        const res = await fetch(`/api/v1/connections/${id}`, { method: 'DELETE' })
+        if (res.ok) loadConnections()
+      } catch (e) {
+        alert('Delete failed')
+      }
     }
 
     function openModal() {
