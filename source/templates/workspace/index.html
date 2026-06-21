@@ -73,24 +73,40 @@
       }
     }
 
+    let activeDb = 0
+
     async function loadDbs() {
       try {
         const res = await fetch(`/api/v1/workspace/${connId}/dbs`)
         const json = await res.json()
         dbData = json.data || []
-        const select = document.getElementById('db-selector')
-        select.innerHTML = dbData.length
-          ? dbData.map(d => `<option value="${d.db}">DB ${d.db}</option>`).join('')
-          : '<option value="0">DB 0</option>'
-        loadKeys(parseInt(select.value))
+        renderDbPills(activeDb)
+        loadKeys(activeDb)
       } catch (e) {
         console.error('failed to load dbs', e)
+        renderDbPills(0)
         loadKeys(0)
       }
     }
 
+    function renderDbPills(selected) {
+      const container = document.getElementById('db-pills')
+      const dbs = dbData.length ? dbData.map(d => d.db) : [0]
+      container.innerHTML = dbs.map(db => {
+        const active = db === selected
+        return `<button onclick="onDbChange(${db})"
+          class="text-[11px] px-2 py-0.5 rounded-md border transition-colors ${active
+            ? 'bg-red-700 border-red-600 text-white font-semibold'
+            : 'bg-[#161b22] border-[#21262d] text-[#8b949e] hover:text-gray-200 hover:border-[#30363d]'}">
+          DB ${db}
+        </button>`
+      }).join('')
+    }
+
     function onDbChange(db) {
-      loadKeys(parseInt(db))
+      activeDb = parseInt(db)
+      renderDbPills(activeDb)
+      loadKeys(activeDb)
     }
 
     function filterKeys(q) {
@@ -102,7 +118,7 @@
       document.querySelectorAll('.key-item button').forEach(b => b.classList.remove('bg-[#1f2937]'))
       btn.classList.add('bg-[#1f2937]')
 
-      const db = parseInt(document.getElementById('db-selector').value)
+      const db = activeDb
       const panel = document.getElementById('detail-panel')
       panel.innerHTML = '<div class="flex-1 flex items-center justify-center text-[11px] text-[#8b949e]">Loading...</div>'
 
@@ -242,7 +258,7 @@
 
     async function deleteKey(key) {
       if (!confirm(`Delete key "${key}"?`)) return
-      const db = parseInt(document.getElementById('db-selector').value)
+      const db = activeDb
       try {
         const res = await fetch(`/api/v1/workspace/${connId}/key-value?key=${encodeURIComponent(key)}&db=${db}`, { method: 'DELETE' })
         if (res.status === 204) {
@@ -311,19 +327,9 @@
 
     <div class="flex-1"></div>
 
-    <!-- DB Selector with auto-refresh -->
-    <div class="flex items-center gap-1.5">
-      <span class="text-[11px] text-[#8b949e]">DB</span>
-      <div class="relative">
-        <select
-          id="db-selector"
-          onchange="onDbChange(this.value)"
-          class="bg-[#161b22] border border-[#21262d] text-gray-200 text-[11px] rounded-md pl-2 pr-6 py-1 focus:outline-none focus:border-[#30363d] cursor-pointer appearance-none"
-        >
-          <option value="0">DB 0</option>
-        </select>
-        <svg class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[#8b949e]" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
+    <!-- DB Pills -->
+    <div id="db-pills" class="flex items-center gap-1">
+      <button onclick="onDbChange(0)" class="text-[11px] px-2 py-0.5 rounded-md border bg-red-700 border-red-600 text-white font-semibold">DB 0</button>
     </div>
   </header>
 
@@ -350,7 +356,7 @@
       <div class="px-3 py-1.5 border-b border-[#21262d] flex items-center justify-between">
         <div class="flex items-center gap-1.5">
           <span id="key-count" class="text-[10px] text-[#8b949e]">128 keys</span>
-          <button onclick="loadKeys(parseInt(document.getElementById('db-selector').value))"
+          <button onclick="loadKeys(activeDb)"
             title="Refresh keys"
             class="text-[#4b5563] hover:text-gray-300 transition-colors">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
