@@ -170,12 +170,32 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <span class="text-[13px] font-semibold text-gray-100 font-mono truncate max-w-[200px]">${escHtml(d.key)}</span>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 ml-auto">
             <span class="text-[10px] font-bold ${typeColor} border px-1.5 py-0.5 rounded">${d.type}</span>
             <span class="text-[11px] text-[#8b949e]">TTL: <span class="text-yellow-400">${ttlLabel}</span></span>
+            <button onclick="deleteKey('${d.key.replace(/'/g, "\\'")}')"
+              class="text-[11px] text-red-400 hover:text-red-300 hover:bg-red-900/20 px-2 py-1 rounded transition-colors">
+              Delete
+            </button>
           </div>
         </div>
         <div class="flex-1 overflow-y-auto">${valueHtml}</div>`
+    }
+
+    async function deleteKey(key) {
+      if (!confirm(`Delete key "${key}"?`)) return
+      const db = parseInt(document.getElementById('db-selector').value)
+      try {
+        const res = await fetch(`/api/v1/workspace/${connId}/key-value?key=${encodeURIComponent(key)}&db=${db}`, { method: 'DELETE' })
+        if (res.status === 204) {
+          const panel = document.getElementById('detail-panel')
+          panel.innerHTML = '<div class="flex-1 flex items-center justify-center text-[11px] text-[#8b949e]">Key deleted</div>'
+          if (window.innerWidth < 768) backToKeys()
+          loadKeys(db)
+        }
+      } catch (e) {
+        alert('Delete failed')
+      }
     }
 
     function escHtml(s) {
