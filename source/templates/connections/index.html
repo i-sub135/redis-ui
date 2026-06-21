@@ -45,13 +45,14 @@
       const main = document.getElementById('cards-container')
       if (!connections.length) {
         main.innerHTML = `
-          <div class="flex-1 flex flex-col items-center justify-center gap-3 text-center py-16">
+          <div class="flex flex-col items-center justify-center gap-3 text-center py-16">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" class="text-[#4b5563]">
               <ellipse cx="12" cy="5" rx="9" ry="3" stroke="currentColor" stroke-width="1.5"/>
               <path d="M3 5v5c0 1.657 4.03 3 9 3s9-1.343 9-3V5" stroke="currentColor" stroke-width="1.5"/>
               <path d="M3 10v5c0 1.657 4.03 3 9 3s9-1.343 9-3v-5" stroke="currentColor" stroke-width="1.5"/>
             </svg>
             <p class="text-[13px] text-[#8b949e]">No connections yet</p>
+            <button onclick="openModal()" class="text-[12px] text-red-400 hover:text-red-300 border border-red-800/50 hover:border-red-700 px-3 py-1.5 rounded-md transition-colors">Add Connection</button>
           </div>`
         return
       }
@@ -80,6 +81,42 @@
       window.location.href = '/workspace/' + id
     }
 
+    function openModal() {
+      document.getElementById('add-modal').classList.remove('hidden')
+      document.getElementById('field-name').focus()
+    }
+
+    function closeModal() {
+      document.getElementById('add-modal').classList.add('hidden')
+      document.getElementById('add-form').reset()
+      document.getElementById('form-error').textContent = ''
+    }
+
+    async function submitConnection(e) {
+      e.preventDefault()
+      const errEl = document.getElementById('form-error')
+      errEl.textContent = ''
+      const body = {
+        name:     document.getElementById('field-name').value.trim(),
+        addr:     document.getElementById('field-addr').value.trim(),
+        password: document.getElementById('field-password').value,
+        db:       parseInt(document.getElementById('field-db').value) || 0,
+      }
+      if (!body.name || !body.addr) { errEl.textContent = 'Name and address are required'; return }
+      try {
+        const res = await fetch('/api/v1/connections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) { errEl.textContent = 'Failed to add connection'; return }
+        closeModal()
+        loadConnections()
+      } catch (e) {
+        errEl.textContent = 'Request failed'
+      }
+    }
+
     function escHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
     }
@@ -90,7 +127,7 @@
 <body class="bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
 
   <!-- Titlebar -->
-  <header class="h-12 border-b border-[#21262d] px-5 flex items-center gap-3 shrink-0">
+  <header class="sticky top-0 z-10 h-12 border-b border-[#21262d] bg-[#0f1117] px-5 flex items-center gap-3 shrink-0">
     <div class="flex items-center gap-2">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
         <ellipse cx="12" cy="5" rx="9" ry="3" stroke="#ef4444" stroke-width="1.5"/>
@@ -100,6 +137,10 @@
       <span class="text-[13px] font-semibold text-gray-200 tracking-tight">Redis UI</span>
     </div>
     <div class="flex-1"></div>
+    <button onclick="openModal()" class="flex items-center gap-1.5 bg-red-700 hover:bg-red-600 text-white text-[11px] font-medium px-3 py-1.5 rounded-md transition-colors">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      Add
+    </button>
   </header>
 
   <!-- Body -->
@@ -113,17 +154,62 @@
       <nav id="sidebar-nav" class="flex-1 overflow-y-auto px-1.5 space-y-0.5">
         <p class="px-3 py-2 text-[11px] text-[#8b949e]">Loading...</p>
       </nav>
+      <div class="p-3 border-t border-[#21262d]">
+        <button onclick="openModal()" class="w-full flex items-center justify-center gap-1.5 bg-red-700 hover:bg-red-600 text-white text-[12px] font-medium py-1.5 rounded-md transition-colors">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add Connection
+        </button>
+      </div>
     </aside>
 
     <!-- Main -->
     <main class="flex-1 flex flex-col">
-      <div class="h-10 border-b border-[#21262d] px-5 flex items-center gap-3">
+      <div class="h-10 border-b border-[#21262d] px-5 flex items-center">
         <span class="text-[12px] font-medium text-gray-300">Connections</span>
       </div>
       <div id="cards-container" class="flex-1 p-4 md:p-5 space-y-2 overflow-y-auto">
         <p class="text-[11px] text-[#8b949e]">Loading...</p>
       </div>
     </main>
+  </div>
+
+  <!-- Add Connection Modal -->
+  <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-[#161b22] border border-[#30363d] rounded-xl w-full max-w-md shadow-2xl">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-[#21262d]">
+        <span class="text-[13px] font-semibold text-gray-100">Add Connection</span>
+        <button onclick="closeModal()" class="text-[#8b949e] hover:text-gray-200 transition-colors">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="add-form" onsubmit="submitConnection(event)" class="px-5 py-4 space-y-3">
+        <div>
+          <label class="block text-[11px] text-[#8b949e] mb-1">Name</label>
+          <input id="field-name" type="text" placeholder="e.g. prod" required
+            class="w-full bg-[#0f1117] border border-[#21262d] rounded-md px-3 py-1.5 text-[12px] text-gray-200 placeholder-[#4b5563] focus:outline-none focus:border-[#30363d]"/>
+        </div>
+        <div>
+          <label class="block text-[11px] text-[#8b949e] mb-1">Address</label>
+          <input id="field-addr" type="text" placeholder="localhost:6379" required
+            class="w-full bg-[#0f1117] border border-[#21262d] rounded-md px-3 py-1.5 text-[12px] text-gray-200 placeholder-[#4b5563] focus:outline-none focus:border-[#30363d]"/>
+        </div>
+        <div>
+          <label class="block text-[11px] text-[#8b949e] mb-1">Password <span class="text-[#4b5563]">(optional)</span></label>
+          <input id="field-password" type="password" placeholder="—"
+            class="w-full bg-[#0f1117] border border-[#21262d] rounded-md px-3 py-1.5 text-[12px] text-gray-200 placeholder-[#4b5563] focus:outline-none focus:border-[#30363d]"/>
+        </div>
+        <div>
+          <label class="block text-[11px] text-[#8b949e] mb-1">Default DB</label>
+          <input id="field-db" type="number" value="0" min="0" max="15"
+            class="w-full bg-[#0f1117] border border-[#21262d] rounded-md px-3 py-1.5 text-[12px] text-gray-200 focus:outline-none focus:border-[#30363d]"/>
+        </div>
+        <p id="form-error" class="text-[11px] text-red-400 min-h-[1rem]"></p>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeModal()" class="flex-1 text-[12px] text-[#8b949e] hover:text-gray-200 border border-[#21262d] hover:border-[#30363d] py-1.5 rounded-md transition-colors">Cancel</button>
+          <button type="submit" class="flex-1 text-[12px] font-medium bg-red-700 hover:bg-red-600 text-white py-1.5 rounded-md transition-colors">Save</button>
+        </div>
+      </form>
+    </div>
   </div>
 
 </body>

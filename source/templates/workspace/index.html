@@ -122,7 +122,7 @@
 
     function renderDetail(d) {
       const panel = document.getElementById('detail-panel')
-      const ttlLabel = d.ttl < 0 ? 'no expiry' : d.ttl + 's'
+      const ttlLabel = formatTTL(d.ttl)
       const typeColor = (TYPE_STYLE[d.type] || {color:'text-gray-400 bg-gray-900/30 border-gray-700'}).color
 
       let valueHtml = ''
@@ -198,6 +198,21 @@
       }
     }
 
+    function formatTTL(sec) {
+      if (sec < 0) return 'no expiry'
+      if (sec === 0) return 'expired'
+      const d = Math.floor(sec / 86400)
+      const h = Math.floor((sec % 86400) / 3600)
+      const m = Math.floor((sec % 3600) / 60)
+      const s = sec % 60
+      const parts = []
+      if (d) parts.push(d + 'd')
+      if (h) parts.push(h + 'h')
+      if (m) parts.push(m + 'm')
+      if (!d && s) parts.push(s + 's')
+      return parts.join(' ') || '0s'
+    }
+
     function escHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
     }
@@ -208,7 +223,7 @@
 <body class="bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
 
   <!-- Titlebar -->
-  <header class="h-12 border-b border-[#21262d] px-4 flex items-center gap-3 shrink-0">
+  <header class="sticky top-0 z-10 h-12 border-b border-[#21262d] bg-[#0f1117] px-4 flex items-center gap-3 shrink-0">
     <!-- Back button -->
     <a href="/" class="inline-flex items-center gap-1.5 text-[11px] text-[#8b949e] hover:text-gray-200 transition-colors shrink-0">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
