@@ -177,18 +177,19 @@
       return String(s).replace(/\\n/g, '\n')
     }
 
-    function deepParseJson(val) {
+    function deepParseJson(val, depth = 0) {
+      if (depth > 10) return val
       if (typeof val === 'string') {
         try {
           const p = JSON.parse(val)
-          if (typeof p === 'object' && p !== null) return deepParseJson(p)
+          if (typeof p === 'object' && p !== null) return deepParseJson(p, depth + 1)
         } catch (_) {}
         return val
       }
-      if (Array.isArray(val)) return val.map(deepParseJson)
+      if (Array.isArray(val)) return val.map(v => deepParseJson(v, depth + 1))
       if (typeof val === 'object' && val !== null) {
         const out = {}
-        for (const [k, v] of Object.entries(val)) out[k] = deepParseJson(v)
+        for (const [k, v] of Object.entries(val)) out[k] = deepParseJson(v, depth + 1)
         return out
       }
       return val
@@ -247,6 +248,13 @@
           <div class="flex items-center gap-3 ml-auto">
             <span class="text-[10px] font-bold ${typeColor} border px-1.5 py-0.5 rounded">${d.type}</span>
             <span class="text-[11px] text-[#8b949e]">TTL: <span class="text-yellow-400">${ttlLabel}</span></span>
+            <button onclick="reloadDetail('${d.key.replace(/'/g, "\\'")}')"
+              title="Refresh value" class="text-[#4b5563] hover:text-gray-300 transition-colors px-1 py-1">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+            </button>
             <button onclick="deleteKey('${d.key.replace(/'/g, "\\'")}')"
               class="text-[11px] text-red-400 hover:text-red-300 hover:bg-red-900/20 px-2 py-1 rounded transition-colors">
               Delete
@@ -269,6 +277,18 @@
         }
       } catch (e) {
         alert('Delete failed')
+      }
+    }
+
+    async function reloadDetail(key) {
+      const panel = document.getElementById('detail-panel')
+      panel.innerHTML = '<div class="flex-1 flex items-center justify-center text-[11px] text-[#8b949e]">Loading...</div>'
+      try {
+        const res = await fetch(`/api/v1/workspace/${connId}/key-value?key=${encodeURIComponent(key)}&db=${activeDb}`)
+        const json = await res.json()
+        renderDetail(json.data)
+      } catch (e) {
+        panel.innerHTML = '<div class="flex-1 flex items-center justify-center text-[11px] text-red-400">Error loading value</div>'
       }
     }
 
