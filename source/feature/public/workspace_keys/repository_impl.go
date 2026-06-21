@@ -51,7 +51,16 @@ func (r *repositoryImpl) ListKeys(ctx context.Context, addr, password string, db
 	for i, k := range keys {
 		t, _ := typeCmds[i].Result()
 		ttlDur, _ := ttlCmds[i].Result()
-		result[i] = KeyInfo{Key: k, Type: t, TTL: int64(ttlDur / time.Second)}
+		var ttlSec int64
+		switch ttlDur {
+		case time.Duration(-1):
+			ttlSec = -1
+		case time.Duration(-2):
+			ttlSec = -2
+		default:
+			ttlSec = int64(ttlDur / time.Second)
+		}
+		result[i] = KeyInfo{Key: k, Type: t, TTL: ttlSec}
 	}
 	return result, nil
 }

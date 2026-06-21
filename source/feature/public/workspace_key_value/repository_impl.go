@@ -27,7 +27,15 @@ func (r *repositoryImpl) GetValue(ctx context.Context, addr, password string, db
 	if err != nil {
 		return nil, fmt.Errorf("ttl: %w", err)
 	}
-	ttlSec := int64(ttl.Seconds())
+	var ttlSec int64
+	switch ttl {
+	case time.Duration(-1):
+		ttlSec = -1
+	case time.Duration(-2):
+		ttlSec = -2
+	default:
+		ttlSec = int64(ttl / time.Second)
+	}
 
 	var value any
 	switch keyType {
