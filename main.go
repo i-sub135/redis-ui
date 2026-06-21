@@ -59,6 +59,7 @@ func main() {
 	r.Use(gin.Recovery())
 
 	r.SetHTMLTemplate(loadTemplates("source/templates"))
+	r.Static("/static", "web/static")
 
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "connections/index.html", nil)
