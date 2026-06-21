@@ -62,7 +62,7 @@
       try {
         const res = await fetch(`/api/v1/workspace/${connId}/keys?db=${db}`)
         const json = await res.json()
-        allKeys = json.data || []
+        allKeys = (json.data || []).sort((a, b) => a.key.localeCompare(b.key))
         counter.textContent = allKeys.length + ' keys'
         renderKeys(allKeys)
       } catch (e) {
@@ -130,12 +130,52 @@
       panel.classList.remove('flex')
     }
 
+    function syntaxHighlight(str) {
+      const re = /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g
+      const out = []
+      let last = 0, m
+      while ((m = re.exec(str)) !== null) {
+        out.push(escHtml(str.slice(last, m.index)))
+        const tok = m[0]
+        let cls = 'text-[#AE81FF]'
+        if (tok[0] === '"') {
+          cls = /:$/.test(tok) ? 'text-[#A6E22E]' : 'text-[#E6DB74]'
+        } else if (tok === 'true' || tok === 'false') {
+          cls = 'text-[#66D9EF]'
+        } else if (tok === 'null') {
+          cls = 'text-[#F92672]'
+        }
+        out.push(`<span class="${cls}">${escHtml(tok)}</span>`)
+        last = m.index + tok.length
+      }
+      out.push(escHtml(str.slice(last)))
+      return out.join('')
+    }
+
     function tryPrettyJson(s) {
       try {
         const parsed = JSON.parse(s)
-        if (typeof parsed === 'object' && parsed !== null) return JSON.stringify(parsed, null, 2)
+        if (typeof parsed === 'object' && parsed !== null)
+          return JSON.stringify(deepParseJson(parsed), null, 2).replace(/\\n/g, '\n')
       } catch (_) {}
-      return s
+      return String(s).replace(/\\n/g, '\n')
+    }
+
+    function deepParseJson(val) {
+      if (typeof val === 'string') {
+        try {
+          const p = JSON.parse(val)
+          if (typeof p === 'object' && p !== null) return deepParseJson(p)
+        } catch (_) {}
+        return val
+      }
+      if (Array.isArray(val)) return val.map(deepParseJson)
+      if (typeof val === 'object' && val !== null) {
+        const out = {}
+        for (const [k, v] of Object.entries(val)) out[k] = deepParseJson(v)
+        return out
+      }
+      return val
     }
 
     function renderDetail(d) {
@@ -145,24 +185,24 @@
 
       let valueHtml = ''
       if (d.type === 'string') {
-        valueHtml = `<pre class="px-5 py-3 text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-all">${escHtml(tryPrettyJson(String(d.value)))}</pre>`
+        valueHtml = `<pre class="px-5 py-3 text-[11px] font-mono text-gray-300 whitespace-pre-wrap break-all">${syntaxHighlight(tryPrettyJson(String(d.value)))}</pre>`
       } else if (d.type === 'hash') {
         const rows = Object.entries(d.value || {}).map(([f,v]) =>
           `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
             <td class="px-5 py-2 font-mono text-blue-300 w-1/3 align-top">${escHtml(f)}</td>
-            <td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${escHtml(tryPrettyJson(String(v)))}</pre></td>
+            <td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${syntaxHighlight(tryPrettyJson(String(v)))}</pre></td>
           </tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium w-1/3">Field</th><th class="text-left px-5 py-2 font-medium">Value</th></tr></thead><tbody>${rows}</tbody></table>`
       } else if (d.type === 'list') {
         const rows = (d.value || []).map((v, i) =>
           `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
             <td class="px-5 py-2 text-[#8b949e] w-12 align-top">${i}</td>
-            <td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${escHtml(tryPrettyJson(String(v)))}</pre></td>
+            <td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${syntaxHighlight(tryPrettyJson(String(v)))}</pre></td>
           </tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium w-12">#</th><th class="text-left px-5 py-2 font-medium">Value</th></tr></thead><tbody>${rows}</tbody></table>`
       } else if (d.type === 'set') {
         const rows = (d.value || []).map(v =>
-          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]"><td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${escHtml(tryPrettyJson(String(v)))}</pre></td></tr>`).join('')
+          `<tr class="border-b border-[#21262d] hover:bg-[#161b22]"><td class="px-5 py-2 font-mono text-gray-300 break-all"><pre class="whitespace-pre-wrap">${syntaxHighlight(tryPrettyJson(String(v)))}</pre></td></tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">Member</th></tr></thead><tbody>${rows}</tbody></table>`
       } else if (d.type === 'zset') {
         const rows = (d.value || []).map(z =>
@@ -175,7 +215,7 @@
         const rows = (d.value || []).map(e =>
           `<tr class="border-b border-[#21262d] hover:bg-[#161b22]">
             <td class="px-5 py-2 font-mono text-[#8b949e] text-[10px] shrink-0">${escHtml(e.ID)}</td>
-            <td class="px-5 py-2 font-mono text-gray-300 text-[10px] break-all"><pre class="whitespace-pre-wrap">${escHtml(JSON.stringify(e.Values, null, 2))}</pre></td>
+            <td class="px-5 py-2 font-mono text-gray-300 text-[10px] break-all"><pre class="whitespace-pre-wrap">${syntaxHighlight(JSON.stringify(deepParseJson(e.Values), null, 2).replace(/\\n/g, '\n'))}</pre></td>
           </tr>`).join('')
         valueHtml = `<table class="w-full text-[11px]"><thead><tr class="border-b border-[#21262d] text-[#8b949e]"><th class="text-left px-5 py-2 font-medium">ID</th><th class="text-left px-5 py-2 font-medium">Values</th></tr></thead><tbody>${rows}</tbody></table>`
       } else {
@@ -183,7 +223,7 @@
       }
 
       panel.innerHTML = `
-        <div class="px-4 py-3 border-b border-[#21262d] flex flex-wrap items-center gap-x-4 gap-y-1 shrink-0">
+        <div class="shrink-0 bg-[#0f1117] px-4 py-3 border-b border-[#21262d] flex flex-wrap items-center gap-x-4 gap-y-1">
           <button onclick="backToKeys()" class="md:hidden mr-1 text-[#8b949e] hover:text-gray-200 transition-colors shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
@@ -197,7 +237,7 @@
             </button>
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto">${valueHtml}</div>`
+        <div class="flex-1 overflow-y-auto pb-16">${valueHtml}</div>`
     }
 
     async function deleteKey(key) {
@@ -250,7 +290,7 @@
     window.addEventListener('DOMContentLoaded', () => { loadConnName(); loadDbs() })
   </script>
 </head>
-<body class="bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
+<body class="bg-[#0f1117] text-gray-100 h-screen overflow-hidden flex flex-col">
 
   <!-- Titlebar -->
   <header class="sticky top-0 z-10 h-12 border-b border-[#21262d] bg-[#0f1117] px-4 flex items-center gap-3 shrink-0">
@@ -308,18 +348,28 @@
 
       <!-- Key count -->
       <div class="px-3 py-1.5 border-b border-[#21262d] flex items-center justify-between">
-        <span id="key-count" class="text-[10px] text-[#8b949e]">128 keys</span>
+        <div class="flex items-center gap-1.5">
+          <span id="key-count" class="text-[10px] text-[#8b949e]">128 keys</span>
+          <button onclick="loadKeys(parseInt(document.getElementById('db-selector').value))"
+            title="Refresh keys"
+            class="text-[#4b5563] hover:text-gray-300 transition-colors">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+              <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+            </svg>
+          </button>
+        </div>
         <span class="text-[10px] text-[#8b949e]">localhost:6379</span>
       </div>
 
       <!-- Key list (populated by JS) -->
-      <ul id="key-list" class="flex-1 overflow-y-auto py-1">
+      <ul id="key-list" class="flex-1 overflow-y-auto py-1 pb-16">
         <li class="px-3 py-4 text-[11px] text-[#8b949e] text-center">Loading...</li>
       </ul>
     </aside>
 
     <!-- Right panel: Key Detail -->
-    <main id="detail-panel" class="hidden md:flex flex-1 flex-col overflow-hidden">
+    <main id="detail-panel" class="hidden md:flex flex-1 flex-col">
       <div class="flex-1 flex items-center justify-center text-[11px] text-[#8b949e]">
         Select a key to view its value
       </div>
